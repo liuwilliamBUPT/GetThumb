@@ -11,8 +11,7 @@ from pathlib import PurePath
 
 
 class Thumb:
-    def __init__(self, video_path, tp, remove, font="./font/Arial.ttf",
-                 _debug=False):
+    def __init__(self, video_path, banner, tp, remove, font, _debug):
         """
         :param video_path: The path of video you want to generate thumbnails.
         :param tp: The path to store thumbnails.
@@ -30,6 +29,8 @@ class Thumb:
         self.remove_thumb = remove
         self._debug = "-report " if _debug else ""
         self.font = font
+        self.banner = banner
+        self.default_banner = True if banner == "./banner.png" or "banner.png" else False
 
     def wait(self, popen: subprocess.Popen):
         while True:
@@ -266,11 +267,15 @@ class Thumb:
             "duration": duration.replace(":", "\\\\:"),
             "output": self.path + "/" + self.name + "_full.png",
             "debug": self._debug,
-            "font": self.font
+            "font": self.font,
+            "banner": self.banner
         }
-
-        cmd = '''ffmpeg {debug}-i banner.png -i {input} -filter_complex "[1:v][0:v]scale2ref=w=iw:h=iw/mdar[input1][input0];[input0]pad=x=0:y=0:w=in_w:h=4184/{width}*{height}+520[out0];[out0]drawtext=bordercolor=black@0.2:fontsize=50:fontcolor=black:fontfile="{font}":x=550:y=100:line_spacing=20:text='File\ Name\x09\\\:\ {file_name}\nFile\ Size\x09\x09\\\\:\ {file_size}\nResolution\x09\\\\:\ {resolution}\nCodec\x09\x09\x09\\\\:\ Video\ {v_codec}\\\\\,\ Audio\ {a_codec}\nDuration\x09\x09\\\\:\ {duration}\n'[out1];[out1][input1]overlay=0:H-h[out2];[out2]scale=-1:1080[out]" -map "[out]" -frames:v 1 {output} -y'''.format(
-            **cmd_dict)
+        if not self.default_banner:
+            cmd = '''ffmpeg {debug}-i {banner} -i {input} -filter_complex "[1:v][0:v]scale2ref=w=iw:h=iw/mdar[input1][input0];[input0]pad=x=0:y=0:w=in_w:h=4184/{width}*{height}+520[out0];[out0]drawtext=bordercolor=black@0.2:fontsize=50:fontcolor=black:fontfile="{font}":x=550:y=100:line_spacing=20:text='File\ Name\x09\x09\\\\:\ {file_name}\nFile\ Size\x09\x09\\\\:\ {file_size}\nResolution\x09\\\\:\ {resolution}\nCodec\x09\x09\x09\\\\:\ Video\ {v_codec}\\\\\,\ Audio\ {a_codec}\nDuration\x09\x09\\\\:\ {duration}\n'[out1];[out1][input1]overlay=0:H-h[out2];[out2]scale=-1:1080[out]" -map "[out]" -frames:v 1 {output} -y'''.format(
+                **cmd_dict)
+        else:
+            cmd = '''ffmpeg {debug}-i {banner} -i {input} -filter_complex "[1:v][0:v]scale2ref=w=iw:h=iw/mdar[input1][input0];[input0]pad=x=0:y=0:w=in_w:h=4168/{width}*{height}+1000[out0];[out0]drawtext=bordercolor=black@0.2:fontsize=50:fontcolor=0xD5246B:fontfile="{font}":x=200:y=640:line_spacing=20:text='File\ Name\x09\x09\\\\:\ {file_name}\nFile\ Size\x09\x09\\\\:\ {file_size}\nResolution\x09\\\\:\ {resolution}\nCodec\x09\x09\x09\\\\:\ Video\ {v_codec}\\\\\,\ Audio\ {a_codec}\nDuration\x09\x09\\\\:\ {duration}\n'[out1];[out1][input1]overlay=0:H-h[out2];[out2]scale=-1:1080[out]" -map "[out]" -frames:v 1 {output} -y'''.format(
+                **cmd_dict)
 
         # print(cmd)
         cmd_list = shlex.split(cmd)
@@ -292,7 +297,7 @@ class Thumb:
     def creat(self, horizontal=3, vertical=3) -> PurePath:
         num = horizontal * vertical
         thumb_list = self.thumbnails(num)
-        print(thumb_list)
+        # print(thumb_list)
         pic_path = self.combine_thumbs(thumb_list)
         return self.add_background(pic_path)
 
