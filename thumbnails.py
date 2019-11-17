@@ -131,7 +131,7 @@ class Thumb:
             time_now = str(datetime.datetime.now().strftime("%Y%m%d_%H%M%S.%f"))
 
             output_name = thumb_path + "/" + filename + "_" + time_now
-            cmd = ffmpeg_sh.format(time,self.video,self.font,output_name)
+            cmd = ffmpeg_sh.format(time, self.video, self.font, output_name)
             p = subprocess.Popen(cmd,
                                  shell=True,
                                  stdout=subprocess.PIPE,
@@ -312,17 +312,11 @@ class Thumb:
         elif slice_pic:
             for slice_file in p_.glob('*.png'):
                 if filename + ".mp4" in str(slice_file):
-                    os.remove(slice_file)
+                    # In Python 3.6, you can pass Path type object  directly to os.remove()
+                    os.remove(slice_file.__str__())
         elif row_pic:
             for row_file in p_.glob('*.png'):
                 if "row_" in str(row_file):
-                    os.remove(row_file)
+                    os.remove(row_file.__str__())
         elif final_pic:
             os.remove(filename + ".png")
-
-
-t = Thumb(("/mnt/d/CCTV1.The.Lantern.Festival."
-           "20190219.1080p.WEB-DL.H264.AAC-TJUPT.mp4"),
-          ".",
-          False, _debug=True)
-print(t.creat())
