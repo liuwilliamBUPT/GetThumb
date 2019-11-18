@@ -3,7 +3,7 @@
 import argparse
 import sys
 
-from thumbnails import Thumb
+from thumbnails.thumbnails import Thumb
 
 
 APP_DESC = r"""
@@ -14,7 +14,7 @@ APP_DESC = r"""
 | |_\ \|  __/| |_   | |  | | | || |_| || | | | | || |_) || | | || (_| || || |\__ \
  \____/ \___| \__|  \_/  |_| |_| \__,_||_| |_| |_||_.__/ |_| |_| \__,_||_||_||___/     
 
-基于FFmpeg的缩略图截图工具 FFmpeg based thumbnails tool
+一款基于FFmpeg的缩略图截图工具 A FFmpeg based thumbnails tool
 注意banner功能仅为测试功能 Note: Getting thumbnails with a banner is still under testing.
 """
 if len(sys.argv) == 1:
@@ -24,7 +24,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-f', '--file', help="指定需要的截图文件", required=True)
 parser.add_argument('-o', '--output', help="指定输出目录", default=".")
 parser.add_argument('-b', '--banner', help="指定banner", default="./banner.png")
-parser.add_argument('-t', '--font', help="指定字体文件", default="./arial.ttf")
+parser.add_argument('-t', '--font', help="指定字体文件")
 parser.add_argument('-d', '--debug', help="启动FFmpeg的debug模式", action='store_true')
 parser.add_argument('-r', '--reserve', help="保留多余的单张截图", action='store_false')
 

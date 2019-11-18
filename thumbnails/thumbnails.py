@@ -28,7 +28,12 @@ class Thumb:
         self.path = self.gen_path()[0]
         self.remove_thumb = remove
         self._debug = "-report " if _debug else ""
-        self.font = font
+        if not font:
+            self.font = ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+                         if os.name == "posix"
+                         else "C:/Windows/Fonts/arial.ttf")
+        else:
+            self.font = font
         self.banner = banner
         self.default_banner = True if banner == "./banner.png" or "banner.png" else False
 
