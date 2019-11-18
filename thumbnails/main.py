@@ -17,6 +17,7 @@ def main():
     
     一款基于FFmpeg的缩略图截图工具 A FFmpeg based thumbnails tool
     注意banner功能仅为测试功能 Note: Getting thumbnails with a banner is still under testing.
+    Author: liuwilliam.zh@gmail.com
     """
     if len(sys.argv) == 1:
         print(APP_DESC)
