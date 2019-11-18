@@ -285,10 +285,33 @@ class Thumb:
             "banner": self.banner
         }
         if not self.default_banner:
-            cmd = '''ffmpeg {debug}-i {banner} -i {input} -filter_complex "[1:v][0:v]scale2ref=w=iw:h=iw/mdar[input1][input0];[input0]pad=x=0:y=0:w=in_w:h=4184/{width}*{height}+520[out0];[out0]drawtext=bordercolor=black@0.2:fontsize=50:fontcolor=black:fontfile="{font}":x=550:y=100:line_spacing=20:text='File\ Name\x09\x09\\\\:\ {file_name}\nFile\ Size\x09\x09\\\\:\ {file_size}\nResolution\x09\\\\:\ {resolution}\nCodec\x09\x09\x09\\\\:\ Video\ {v_codec}\\\\\,\ Audio\ {a_codec}\nDuration\x09\x09\\\\:\ {duration}\n'[out1];[out1][input1]overlay=0:H-h[out2];[out2]scale=-1:1080[out]" -map "[out]" -frames:v 1 {output} -y'''.format(
+            cmd = ('''ffmpeg {debug}-i {banner} -i {input} '''
+                   '''-filter_complex "[1:v][0:v]scale2ref=w=iw:h=iw/mdar[input1][input0];'''
+                   '''[input0]pad=x=0:y=0:w=in_w:h=4184/{width}*{height}+520[out0];'''
+                   '''[out0]drawtext=bordercolor=black@0.2:fontsize=50:fontcolor=black:'''
+                   '''fontfile="{font}":x=550:y=100:line_spacing=20:'''
+                   '''text='File\ Name\x09\x09\\\\:\ {file_name}\nFile\ Size'''
+                   '''\x09\x09\\\\:\ {file_size}\nResolution\x09\\\\:\ '''
+                   '''{resolution}\nCodec\x09\x09\x09\\\\:\ '''
+                   '''Video\ {v_codec}\\\\\,\ Audio\ {a_codec}\n'''
+                   '''Duration\x09\x09\\\\:\ {duration}\n'[out1];'''
+                   '''[out1][input1]overlay=0:H-h[out2];'''
+                   '''[out2]scale=-1:1080[out]" '''
+                   '''-map "[out]" -frames:v 1 {output} -y''').format(
                 **cmd_dict)
         else:
-            cmd = '''ffmpeg {debug}-i {banner} -i {input} -filter_complex "[1:v][0:v]scale2ref=w=iw:h=iw/mdar[input1][input0];[input0]pad=x=0:y=0:w=in_w:h=4168/{width}*{height}+1000[out0];[out0]drawtext=bordercolor=black@0.2:fontsize=50:fontcolor=0xD5246B:fontfile="{font}":x=200:y=640:line_spacing=20:text='File\ Name\x09\x09\\\\:\ {file_name}\nFile\ Size\x09\x09\\\\:\ {file_size}\nResolution\x09\\\\:\ {resolution}\nCodec\x09\x09\x09\\\\:\ Video\ {v_codec}\\\\\,\ Audio\ {a_codec}\nDuration\x09\x09\\\\:\ {duration}\n'[out1];[out1][input1]overlay=0:H-h[out2];[out2]scale=-1:1080[out]" -map "[out]" -frames:v 1 {output} -y'''.format(
+            cmd = ('''ffmpeg {debug}-i {banner} -i {input} '''
+                   '''-filter_complex "[1:v][0:v]scale2ref=w=iw:h=iw/mdar[input1][input0];'''
+                   '''[input0]pad=x=0:y=0:w=in_w:h=4168/{width}*{height}+1000[out0];'''
+                   '''[out0]drawtext=bordercolor=black@0.2:fontsize=50:fontcolor=0xD5246B:'''
+                   '''fontfile="{font}":x=200:y=640:line_spacing=20:'''
+                   '''text='File\ Name\x09\x09\\\\:\ {file_name}\nFile\ '''
+                   '''Size\x09\x09\\\\:\ {file_size}\n'''
+                   '''Resolution\x09\\\\:\ {resolution}\n'''
+                   '''Codec\x09\x09\x09\\\\:\ Video\ {v_codec}\\\\\,\ Audio\ {a_codec}\n'''
+                   '''Duration\x09\x09\\\\:\ {duration}\n'[out1];'''
+                   '''[out1][input1]overlay=0:H-h[out2];[out2]scale=-1:1080[out]" '''
+                   '''-map "[out]" -frames:v 1 {output} -y''').format(
                 **cmd_dict)
 
         # print(cmd)
