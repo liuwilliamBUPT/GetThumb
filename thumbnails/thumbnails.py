@@ -5,6 +5,7 @@ import subprocess
 import datetime
 import shlex
 import json
+import pkg_resources
 
 from pathlib import Path
 from pathlib import PurePath
@@ -35,7 +36,15 @@ class Thumb:
         else:
             self.font = font
         self.banner = banner
-        self.default_banner = True if banner == "./banner.png" or "banner.png" else False
+        self.default_banner = True if banner == "thumbnails/static/banner.png" else False
+
+        resource_package = __name__
+        resource_path = '/'.join(
+            ('static', 'banner.png'))  # Do not use os.path.join()
+        banner_path = pkg_resources.resource_filename(resource_package,
+                                                      resource_path)
+        if self.default_banner:
+            self.banner = banner_path
 
     def wait(self, popen: subprocess.Popen):
         while True:
