@@ -20,7 +20,7 @@ setup(name='GetThumbnails',
       install_requires=[],
       entry_points={
         'console_scripts': [
-            'GetThumbnails = thumbnails:main'
+            'GetThumbnails = thumbnails.main:main'
         ]
       },
 )
