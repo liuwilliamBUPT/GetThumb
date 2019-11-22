@@ -32,7 +32,7 @@ class Thumb:
         # output path
         self.tp = tp
         # tp+"/"+video name
-        self.path = self.gen_path()[0]
+        self.path = self.gen_path()
         self.remove_thumb = not keep
         self._debug = "-report " if _debug else ""
         if not font:
@@ -69,7 +69,7 @@ class Thumb:
             if popen.poll() is not None:
                 break
 
-    def gen_path(self) -> tuple:
+    def gen_path(self) -> str:
         """
         Generate thumbnails folder if it doesn't exist.
         :return: path, filename -> thumbnails path, video fullname
@@ -77,7 +77,7 @@ class Thumb:
         # filename = os.path.basename(self.video)
         # raw_video_name = os.path.splitext(filename)[0]
         # thumb_folder = Path(self.tp).as_posix()
-        return PurePath(self.tp).as_posix() + "/" + self.name, self.name_ext
+        return PurePath(self.tp).as_posix() + "/" + self.name
 
     def get_length(self) -> str:
         """
@@ -132,7 +132,7 @@ class Thumb:
         :return: Thumnmails' name list.
         """
         # 创建与视频同名的文件夹
-        thumb_path, filename = self.gen_path()
+        thumb_path, filename = self.gen_path(), self.name_ext
         try:
             Path(thumb_path).mkdir(parents=True, exist_ok=True)
         except TypeError:
