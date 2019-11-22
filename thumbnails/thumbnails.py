@@ -6,28 +6,34 @@ import datetime
 import shlex
 import json
 import pkg_resources
+import tempfile
 
 from pathlib import Path
 from pathlib import PurePath
 
 
 class Thumb:
-    def __init__(self, video_path, banner, tp, remove, font, _debug):
+    def __init__(self, video_path, banner, tp, keep, font, _debug):
         """
         :param video_path: The path of video you want to generate thumbnails.
+        :param banner: Set a banner for thumbnails.
         :param tp: The path to store thumbnails.
-        :param remove: Remove unnecessary thumbnails flag.
-        :param _debug: FFmpeg report mode flag.
+        :param keep: keep all temporary thumbnails.
+        :param font: Set font to use in thumbnails.
+        :param _debug: FFmpeg report mode.
         """
         self.video = video_path
         self.length = self.get_length()
         self.size = self.get_size(video_path)
-        self.fullname = PurePath(video_path).name
-        # 此处有重复后期处理消除重复代码
-        self.name = os.path.splitext(PurePath(video_path).name)[0]
+        # raw name
+        self.name = PurePath(video_path).name[0]
+        # name with ext
+        self.name_ext = PurePath(video_path).name
+        # output path
         self.tp = tp
+        # tp+"/"+video name
         self.path = self.gen_path()[0]
-        self.remove_thumb = remove
+        self.remove_thumb = not keep
         self._debug = "-report " if _debug else ""
         if not font:
             self.font = ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
@@ -47,6 +53,11 @@ class Thumb:
             self.banner = banner_path
 
     def wait(self, popen: subprocess.Popen):
+        """
+
+        :param popen:
+        :return:
+        """
         while True:
             if self._debug:
                 try:
@@ -63,10 +74,10 @@ class Thumb:
         Generate thumbnails folder if it doesn't exist.
         :return: path, filename -> thumbnails path, video fullname
         """
-        filename = os.path.basename(self.video)
-        raw_video_name = os.path.splitext(filename)[0]
-        thumb_folder = Path(self.tp).as_posix()
-        return thumb_folder + "/" + raw_video_name, filename
+        # filename = os.path.basename(self.video)
+        # raw_video_name = os.path.splitext(filename)[0]
+        # thumb_folder = Path(self.tp).as_posix()
+        return PurePath(self.tp).as_posix() + "/" + self.name, self.name_ext
 
     def get_length(self) -> str:
         """
@@ -102,6 +113,7 @@ class Thumb:
     def clean_thumb(self, file):
         """
         Clean thumbs in the file's folder except the file.
+        This function will be useless...
         :param file: The file you don't want to delete.
         :return: Boolean
         """
@@ -212,9 +224,6 @@ class Thumb:
                                     stdout=subprocess.PIPE,
                                     stderr=subprocess.STDOUT,
                                     cwd=path)
-            # while True:
-            #     if pipe.poll() is not None:
-            #         break
             self.wait(pipe)
 
         cmd = 'ffmpeg -y -i '
@@ -226,9 +235,6 @@ class Thumb:
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT,
                                 cwd=path)
-        # while True:
-        #     if pipe.poll() is not None:
-        #         break
         self.wait(pipe)
         pic_path = PurePath(path + '/{:s}.png'.format(pic_name))
 
@@ -236,8 +242,7 @@ class Thumb:
 
         return pic_path
 
-    def add_background(self, pic_path: PurePath) -> PurePath:
-        # 使用ffprobe获得mediainfo？或者从文件名中提取
+    def add_banner(self, pic_path: PurePath) -> PurePath:
         ffprobe_cmd = ('ffprobe '
                        '-i {video} '
                        '-v quiet '
@@ -253,7 +258,6 @@ class Thumb:
                                      stderr=subprocess.STDOUT,
                                      )
         output, error = mediainfo.communicate()
-        # print(output)
         output = json.loads(output.decode())
 
         v_codec = output["streams"][0]["codec_name"].upper()
@@ -271,7 +275,7 @@ class Thumb:
         # PurePath("background.png")
         cmd_dict = {  # "background": "background.png",
             "input": pic_path.as_posix(),
-            "file_name": self.fullname,
+            "file_name": self.name_ext,
             "file_size": file_size,
             "resolution": resolution,
             "height": str(output["streams"][0]["height"]),
@@ -333,32 +337,9 @@ class Thumb:
 
     def creat(self, horizontal=3, vertical=3) -> PurePath:
         num = horizontal * vertical
+        with tempfile.TemporaryDirectory()as td:
+
+            pass
         thumb_list = self.thumbnails(num)
-        # print(thumb_list)
         pic_path = self.combine_thumbs(thumb_list)
-        return self.add_background(pic_path)
-
-    def clean(self,
-              all_pic=False, slice_pic=True, row_pic=False, final_pic=False):
-        def check_input():
-            if all_pic:
-                return 0
-            else:
-                return 1
-
-        p, filename = self.gen_path()
-        p_ = Path(p)
-        if check_input() == 0:
-            for all_file in p_.glob('*.png'):
-                os.remove(str(all_file))
-        elif slice_pic:
-            for slice_file in p_.glob('*.png'):
-                if filename + ".mp4" in str(slice_file):
-                    # In Python 3.6, you can pass Path type object  directly to os.remove()
-                    os.remove(slice_file.__str__())
-        elif row_pic:
-            for row_file in p_.glob('*.png'):
-                if "row_" in str(row_file):
-                    os.remove(row_file.__str__())
-        elif final_pic:
-            os.remove(filename + ".png")
+        return self.add_banner(pic_path)
