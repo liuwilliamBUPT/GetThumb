@@ -30,13 +30,14 @@ def main():
     parser.add_argument('-t', '--font', help="指定字体文件")
     parser.add_argument('-d', '--debug', help="启动FFmpeg的debug模式",
                         action='store_true')
-    parser.add_argument('-r', '--reserve', help="保留多余的单张截图",
+    parser.add_argument('-r', '--keep', help="保留多余的单张截图（所有截图将保存在与"
+                                             "视频相同命名的目录中）",
                         action='store_false')
 
     args = parser.parse_args()
     Thumb(video_path=args.file,
           tp=args.output,
-          remove=args.reserve,
+          keep=args.reserve,
           font=args.file,
           banner=args.banner,
           _debug=args.debug).creat()
