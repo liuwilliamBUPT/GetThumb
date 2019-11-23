@@ -32,7 +32,7 @@ class Thumb:
         # output path
         self.tp = tp
         # tp+"/"+video name
-        self.path = self.gen_path()
+        # self.path = self.gen_path(td)
         self.remove_thumb = not keep
         self._debug = "-report " if _debug else ""
         if not font:
@@ -69,15 +69,22 @@ class Thumb:
             if popen.poll() is not None:
                 break
 
-    def gen_path(self) -> str:
+    def gen_path(self, td) -> str:
         """
         Generate thumbnails folder if it doesn't exist.
         :return: path, filename -> thumbnails path, video fullname
         """
-        # filename = os.path.basename(self.video)
-        # raw_video_name = os.path.splitext(filename)[0]
-        # thumb_folder = Path(self.tp).as_posix()
-        return PurePath(self.tp).as_posix() + "/" + self.name
+        # self.remove_thumb=False时创建与视频同名的文件夹
+        if not self.remove_thumb:
+            thumb_path = PurePath(self.tp).as_posix() + "/" + self.name
+            try:
+                Path(thumb_path).mkdir(parents=True, exist_ok=True)
+            except TypeError:
+                if not Path(thumb_path).exists():
+                    Path(thumb_path).mkdir(parents=True)
+        else:
+            thumb_path = td
+        return thumb_path
 
     def get_length(self) -> str:
         """
@@ -110,54 +117,50 @@ class Thumb:
         size_g = size_m / 1024  # GiB
         return size_m, size_g
 
-    def clean_thumb(self, file):
-        """
-        Clean thumbs in the file's folder except the file.
-        This function will be useless...
-        :param file: The file you don't want to delete.
-        :return: Boolean
-        """
-        if self.remove_thumb:
-            files = Path(file).parent.glob("*")
-            for item in files:
-                if str(item.name) != Path(file).name:
-                    item.unlink()
-            return True
-        return False
+    # def clean_thumb(self, file):
+    #     """
+    #     Clean thumbs in the file's folder except the file.
+    #     This function will be useless...
+    #     :param file: The file you don't want to delete.
+    #     :return: Boolean
+    #     """
+    #     if self.remove_thumb:
+    #         files = Path(file).parent.glob("*")
+    #         for item in files:
+    #             if str(item.name) != Path(file).name:
+    #                 item.unlink()
+    #         return True
+    #     return False
 
-    def thumbnails(self, num) -> list:
+    def thumbnails(self, num, td) -> list:
         """
         Generate thumbnails.
         :param num: The number of thumbnails you want to get.
-        :return: Thumnmails' name list.
+        :param td: temporary directory.
+        :return: Thumbnails' name list.
         """
-        # 创建与视频同名的文件夹
-        thumb_path, filename = self.gen_path(), self.name_ext
-        try:
-            Path(thumb_path).mkdir(parents=True, exist_ok=True)
-        except TypeError:
-            if not Path(thumb_path).exists():
-                Path(thumb_path).mkdir(parents=True)
+        thumb_path = self.gen_path(td)
 
         # 生成带时间戳的截图命令
         length = int(float(self.length))
         interval = length / (num + 1)
         time_list = []
+
         # 生成截图时间点
         for i in range(num):
             time_list.append(interval * (i + 1))
-        ffmpeg_sh = '''ffmpeg -start_at_zero -copyts -ss {:s} -i {:s} \
-        -vf "drawtext=fontfile={}:fontsize=h/20:fontcolor=yellow:x=5:y=5:text='Time\\: %{{pts\\:hms}}'" \
-        -vframes 1 "{:s}.png"'''
+        ffmpeg_sh = ('''ffmpeg -start_at_zero -copyts -ss {:s} -i {:s} '''
+                     '''-vf "drawtext=fontfile={}:fontsize=h/20:'''
+                     '''fontcolor=yellow:x=5:y=5:'''
+                     '''text='Time\\: %{{pts\\:hms}}'" -vframes 1 "{:s}.png"''')
 
-        # print(time_list)
         thumb_list = []
-        for i in time_list:
-            time = str(datetime.timedelta(seconds=i))
+        for time_point in time_list:
+            time = str(datetime.timedelta(seconds=time_point))
             # 按现在时间生成截图名
             time_now = str(datetime.datetime.now().strftime("%Y%m%d_%H%M%S.%f"))
 
-            output_name = thumb_path + "/" + filename + "_" + time_now
+            output_name = thumb_path + "/" + self.name + "_" + time_now
             cmd = ffmpeg_sh.format(time, self.video, self.font, output_name)
             p = subprocess.Popen(cmd,
                                  shell=True,
@@ -173,21 +176,18 @@ class Thumb:
 
         return thumb_list
 
-    def combine_thumbs(self, thumb_list, horizontal=3, vertical=3):
+    def combine_thumbs(self, thumb_list, td, horizontal=3, vertical=3):
         """
 
         :param thumb_list:
+        :param td:
         :param horizontal:
         :param vertical:
         :return:
         """
-        # p = Path(path)
-        path = str(PurePath(thumb_list[0]).parent)
+        path = self.gen_path(td)
 
-        # 获取截图的当前目录名，作为合并截图的名字，即视频名。
-        pic_name = PurePath(path).name
-
-        # 创建一个list,用
+        # 创建一个list,用于储存截图名字，避免生成命令过长
         thumbs_name = []
 
         for file in thumb_list:
@@ -197,15 +197,16 @@ class Thumb:
         i = 0
         # 创建一个二维数组
         grid_thumb = [["" for i in range(horizontal)] for i in range(vertical)]
-        for v in range(len(grid_thumb)):
-            for h in range(len(grid_thumb[0])):
+
+        # 生成对应的-i 按时间顺序填入grid_thumb
+        for v in range(vertical):
+            for h in range(horizontal):
                 grid_thumb[v][h] = ' -i ' + thumbs_name[i]
                 i += 1
 
+        # 生成合并每行的命令并存储在line中，生成row_x.png形式的图片
         line = []
         i = 0
-        # 生成合并每行的命令并存储在line中，生成row_x.png形式的图片
-        # item: List[int]
 
         row_thumb = []
         for item in grid_thumb:
@@ -229,20 +230,20 @@ class Thumb:
         cmd = 'ffmpeg -y -i '
         cmd += ' -i '.join(row_thumb)
         cmd += ' -filter_complex "vstack=inputs={:s}" {:s}.png'
-        cmd = cmd.format(str(horizontal), pic_name)
+        cmd = cmd.format(str(horizontal), self.name)
         pipe = subprocess.Popen(cmd,
                                 shell=True,
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT,
                                 cwd=path)
         self.wait(pipe)
-        pic_path = PurePath(path + '/{:s}.png'.format(pic_name))
+        pic_path = PurePath(path + '/{:s}.png'.format(self.name))
 
-        self.clean_thumb(str(pic_path))
+        # self.clean_thumb(str(pic_path))
 
         return pic_path
 
-    def add_banner(self, pic_path: PurePath) -> PurePath:
+    def add_banner(self, pic_path: PurePath, td) -> PurePath:
         ffprobe_cmd = ('ffprobe '
                        '-i {video} '
                        '-v quiet '
@@ -272,8 +273,12 @@ class Thumb:
         file_size = (file_size
                      if self.size[0] < 1024.0
                      else str(round(self.size[1], 2)) + " GiB")
-        # PurePath("background.png")
-        cmd_dict = {  # "background": "background.png",
+        if not self.remove_thumb:
+            output_path = td
+        else:
+            output_path = self.tp
+
+        cmd_dict = {
             "input": pic_path.as_posix(),
             "file_name": self.name_ext,
             "file_size": file_size,
@@ -283,7 +288,7 @@ class Thumb:
             "v_codec": v_codec,
             "a_codec": a_codec,
             "duration": duration.replace(":", "\\\\:"),
-            "output": self.path + "/" + self.name + "_full.png",
+            "output": output_path + "/" + self.name + "_full.png",
             "debug": self._debug,
             "font": self.font,
             "banner": self.banner
@@ -318,28 +323,20 @@ class Thumb:
                    '''-map "[out]" -frames:v 1 {output} -y''').format(
                 **cmd_dict)
 
-        # print(cmd)
         cmd_list = shlex.split(cmd)
-        # print(cmd_list)
-
-        background = subprocess.Popen(cmd_list,
-                                      stdout=subprocess.PIPE,
-                                      stderr=subprocess.STDOUT,
-                                      cwd=str(Path(".").cwd()))
-        output, error = background.communicate()
-        print(output.decode())
-        # while True:
-        #     if background.poll() is not None:
-        #         break
-        self.wait(background)
+        banner = subprocess.Popen(cmd_list,
+                                  stdout=subprocess.PIPE,
+                                  stderr=subprocess.STDOUT,
+                                  cwd=str(Path(".").cwd()))
+        output, error = banner.communicate()
+        # print(output.decode())
+        self.wait(banner)
 
         return PurePath(cmd_dict["output"])
 
     def creat(self, horizontal=3, vertical=3) -> PurePath:
         num = horizontal * vertical
         with tempfile.TemporaryDirectory()as td:
-
-            pass
-        thumb_list = self.thumbnails(num)
-        pic_path = self.combine_thumbs(thumb_list)
-        return self.add_banner(pic_path)
+            thumb_list = self.thumbnails(num, td)
+            pic_path = self.combine_thumbs(thumb_list, td)
+            return self.add_banner(pic_path, td)
