@@ -37,7 +37,7 @@ def main():
     args = parser.parse_args()
     Thumb(video_path=args.file,
           tp=args.output,
-          keep=args.reserve,
+          keep=args.keep,
           font=args.file,
           banner=args.banner,
           _debug=args.debug).creat()
