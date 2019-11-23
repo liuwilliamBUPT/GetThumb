@@ -274,9 +274,9 @@ class Thumb:
                      if self.size[0] < 1024.0
                      else str(round(self.size[1], 2)) + " GiB")
         if not self.remove_thumb:
-            output_path = td
+            output_path = PurePath(self.tp).as_posix() + "/" + self.name
         else:
-            output_path = self.tp
+            output_path = PurePath(self.tp).as_posix()
 
         cmd_dict = {
             "input": pic_path.as_posix(),
