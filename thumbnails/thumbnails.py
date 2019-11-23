@@ -31,8 +31,6 @@ class Thumb:
         self.name_ext = PurePath(video_path).name
         # output path
         self.tp = tp
-        # tp+"/"+video name
-        # self.path = self.gen_path(td)
         self.remove_thumb = not keep
         self._debug = "-report " if _debug else ""
         if not font:
@@ -117,21 +115,6 @@ class Thumb:
         size_g = size_m / 1024  # GiB
         return size_m, size_g
 
-    # def clean_thumb(self, file):
-    #     """
-    #     Clean thumbs in the file's folder except the file.
-    #     This function will be useless...
-    #     :param file: The file you don't want to delete.
-    #     :return: Boolean
-    #     """
-    #     if self.remove_thumb:
-    #         files = Path(file).parent.glob("*")
-    #         for item in files:
-    #             if str(item.name) != Path(file).name:
-    #                 item.unlink()
-    #         return True
-    #     return False
-
     def thumbnails(self, num, td) -> list:
         """
         Generate thumbnails.
@@ -166,12 +149,7 @@ class Thumb:
                                  shell=True,
                                  stdout=subprocess.PIPE,
                                  stderr=subprocess.STDOUT)
-            # output, error = p.communicate()
-            # print(output.decode())
             thumb_list.append(output_name + ".png")
-            # while True:
-            #     if p.poll() is not None:
-            #         break
             self.wait(p)
 
         return thumb_list
@@ -238,9 +216,6 @@ class Thumb:
                                 cwd=path)
         self.wait(pipe)
         pic_path = PurePath(path + '/{:s}.png'.format(self.name))
-
-        # self.clean_thumb(str(pic_path))
-
         return pic_path
 
     def add_banner(self, pic_path: PurePath, td) -> PurePath:
@@ -328,8 +303,6 @@ class Thumb:
                                   stdout=subprocess.PIPE,
                                   stderr=subprocess.STDOUT,
                                   cwd=str(Path(".").cwd()))
-        output, error = banner.communicate()
-        # print(output.decode())
         self.wait(banner)
 
         return PurePath(cmd_dict["output"])
