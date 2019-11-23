@@ -30,7 +30,7 @@ def main():
     parser.add_argument('-t', '--font', help="指定字体文件")
     parser.add_argument('-d', '--debug', help="启动FFmpeg的debug模式",
                         action='store_true')
-    parser.add_argument('-r', '--keep', help="保留多余的单张截图（所有截图将保存在与"
+    parser.add_argument('-k', '--keep', help="保留多余的单张截图（所有截图将保存在与"
                                              "视频相同命名的目录中）",
                         action='store_true')
 
