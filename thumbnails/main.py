@@ -32,7 +32,7 @@ def main():
                         action='store_true')
     parser.add_argument('-r', '--keep', help="保留多余的单张截图（所有截图将保存在与"
                                              "视频相同命名的目录中）",
-                        action='store_false')
+                        action='store_true')
 
     args = parser.parse_args()
     Thumb(video_path=args.file,
