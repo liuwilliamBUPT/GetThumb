@@ -26,7 +26,7 @@ class Thumb:
         self.length = self.get_length()
         self.size = self.get_size(video_path)
         # raw name
-        self.name = PurePath(video_path).name[0]
+        self.name = PurePath(video_path).stem
         # name with ext
         self.name_ext = PurePath(video_path).name
         # output path
