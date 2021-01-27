@@ -13,7 +13,8 @@ from pathlib import PurePath
 
 
 class Thumb:
-    def __init__(self, video_path, banner, tp, keep, font, _debug):
+    def __init__(self, video_path: str, banner: str, tp: str, keep: bool,
+                 font: str, _debug: bool):
         """
         :param video_path: The path of video you want to generate thumbnails.
         :param banner: Set a banner for thumbnails.
@@ -22,33 +23,35 @@ class Thumb:
         :param font: Set font to use in thumbnails.
         :param _debug: FFmpeg report mode.
         """
-        self.video = video_path
-        self.length = self.get_length()
-        self.size = self.get_size(video_path)
+        self._video = video_path
+        self._length = self.length
+        self._size = self.size
         # raw name
-        self.name = PurePath(video_path).stem
+        self._name = PurePath(video_path).stem
         # name with ext
-        self.name_ext = PurePath(video_path).name
+        self._name_ext = PurePath(video_path).name
         # output path
-        self.tp = tp
-        self.remove_thumb = not keep
+        self._tp = os.getcwd() if tp == "." else tp
+        self._remove_thumb = not keep
         self._debug = "-report " if _debug else ""
         if not font:
-            self.font = ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-                         if os.name == "posix"
-                         else "C:/Windows/Fonts/arial.ttf")
+            self._font = ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+                          if os.name == "posix"
+                          else "C:/Windows/Fonts/arial.ttf")
         else:
-            self.font = font
-        self.banner = banner
-        self.default_banner = True if banner == "thumbnails/static/banner.png" else False
+            self._font = font
+
+        self._banner = PurePath(banner).as_posix()
+        self._default_banner = (True if banner == "thumbnails/static/banner.png"
+                                else False)
 
         resource_package = __name__
         resource_path = '/'.join(
             ('static', 'banner.png'))  # Do not use os.path.join()
         banner_path = pkg_resources.resource_filename(resource_package,
                                                       resource_path)
-        if self.default_banner:
-            self.banner = banner_path
+        if self._default_banner:
+            self._banner = PurePath(banner_path).as_posix()
 
     def wait(self, popen: subprocess.Popen):
         """
@@ -72,9 +75,9 @@ class Thumb:
         Generate thumbnails folder if it doesn't exist.
         :return: path, filename -> thumbnails path, video fullname
         """
-        # self.remove_thumb=False时创建与视频同名的文件夹
-        if not self.remove_thumb:
-            thumb_path = PurePath(self.tp).as_posix() + "/" + self.name
+        # self.remove_thumb=False 时创建与视频同名的文件夹
+        if not self._remove_thumb:
+            thumb_path = PurePath(self._tp).as_posix() + "/" + self._name
             try:
                 Path(thumb_path).mkdir(parents=True, exist_ok=True)
             except TypeError:
@@ -84,14 +87,15 @@ class Thumb:
             thumb_path = td
         return thumb_path
 
-    def get_length(self) -> str:
+    @property
+    def length(self) -> str:
         """
         Get the duration of self.video.
         :return: duration of video in seconds.
         """
         cmd = ('ffprobe -i {} -show_entries '
                'format=duration -v quiet -of csv="p=0"')
-        cmd = cmd.format(self.video)
+        cmd = cmd.format(self._video)
         result = subprocess.Popen(cmd,
                                   shell=True,
                                   stdout=subprocess.PIPE,
@@ -102,20 +106,19 @@ class Thumb:
         length = output.decode()
         return length
 
-    @staticmethod
-    def get_size(file):
+    @property
+    def size(self):
         """
         Get the size of file.
-        :param file: video, image or etc.
         :return: size_m: file size in MiB, size_g: file size in GiB
         """
-        size = os.path.getsize(file)
+        size = os.path.getsize(self._video)
         size = size / 1024
         size_m = size / 1024  # MiB
         size_g = size_m / 1024  # GiB
         return size_m, size_g
 
-    def thumbnails(self, num, td) -> list:
+    def thumbnails(self, num: int, td: str) -> list:
         """
         Generate thumbnails.
         :param num: The number of thumbnails you want to get.
@@ -125,7 +128,7 @@ class Thumb:
         thumb_path = self.gen_path(td)
 
         # 生成带时间戳的截图命令
-        length = int(float(self.length))
+        length = int(float(self._length))
         interval = length / (num + 1)
         time_list = []
 
@@ -143,8 +146,8 @@ class Thumb:
             # 按现在时间生成截图名
             time_now = str(datetime.datetime.now().strftime("%Y%m%d_%H%M%S.%f"))
 
-            output_name = thumb_path + "/" + self.name + "_" + time_now
-            cmd = ffmpeg_sh.format(time, self.video, self.font, output_name)
+            output_name = thumb_path + "/" + self._name + "_" + time_now
+            cmd = ffmpeg_sh.format(time, self._video, self._font, output_name)
             p = subprocess.Popen(cmd,
                                  shell=True,
                                  stdout=subprocess.PIPE,
@@ -208,17 +211,17 @@ class Thumb:
         cmd = 'ffmpeg -y -i '
         cmd += ' -i '.join(row_thumb)
         cmd += ' -filter_complex "vstack=inputs={:s}" {:s}.png'
-        cmd = cmd.format(str(horizontal), self.name)
+        cmd = cmd.format(str(horizontal), self._name)
         pipe = subprocess.Popen(cmd,
                                 shell=True,
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT,
                                 cwd=path)
         self.wait(pipe)
-        pic_path = PurePath(path + '/{:s}.png'.format(self.name))
+        pic_path = PurePath(path + '/{:s}.png'.format(self._name))
         return pic_path
 
-    def add_banner(self, pic_path: PurePath, td) -> PurePath:
+    def add_banner(self, pic_path: PurePath) -> PurePath:
         ffprobe_cmd = ('ffprobe '
                        '-i {video} '
                        '-v quiet '
@@ -226,7 +229,7 @@ class Thumb:
                        '-show_format '
                        '-show_streams '
                        '-hide_banner')
-        ffprobe_cmd = ffprobe_cmd.format(video=self.video)
+        ffprobe_cmd = ffprobe_cmd.format(video=self._video)
 
         mediainfo = subprocess.Popen(ffprobe_cmd,
                                      shell=True,
@@ -242,20 +245,20 @@ class Thumb:
         # file_size = output["format"]["size"]
         resolution = str(output["streams"][0]["width"])
         resolution += " x " + str(output["streams"][0]["height"])
-        duration = str(datetime.timedelta(seconds=int(float(self.length))))
+        duration = str(datetime.timedelta(seconds=int(float(self._length))))
         # 判断视频体积以决定输出单位
-        file_size = str(round(self.size[0], 2)) + " MiB"
+        file_size = str(round(self._size[0], 2)) + " MiB"
         file_size = (file_size
-                     if self.size[0] < 1024.0
-                     else str(round(self.size[1], 2)) + " GiB")
-        if not self.remove_thumb:
-            output_path = PurePath(self.tp).as_posix() + "/" + self.name
+                     if self._size[0] < 1024.0
+                     else str(round(self._size[1], 2)) + " GiB")
+        if not self._remove_thumb:
+            output_path = PurePath(self._tp).as_posix() + "/" + self._name
         else:
-            output_path = PurePath(self.tp).as_posix()
+            output_path = PurePath(self._tp).as_posix()
 
         cmd_dict = {
             "input": pic_path.as_posix(),
-            "file_name": self.name_ext,
+            "file_name": self._name_ext,
             "file_size": file_size,
             "resolution": resolution,
             "height": str(output["streams"][0]["height"]),
@@ -263,18 +266,18 @@ class Thumb:
             "v_codec": v_codec,
             "a_codec": a_codec,
             "duration": duration.replace(":", "\\\\:"),
-            "output": output_path + "/" + self.name + "_full.png",
+            "output": output_path + "/" + self._name + "_full.png",
             "debug": self._debug,
-            "font": self.font,
-            "banner": self.banner
+            "font": self._font,
+            "banner": self._banner
         }
-        if not self.default_banner:
+        if not self._default_banner:
             cmd = ('''ffmpeg {debug}-i {banner} -i {input} '''
                    '''-filter_complex "[1:v][0:v]scale2ref=w=iw:h=iw/mdar[input1][input0];'''
                    '''[input0]pad=x=0:y=0:w=in_w:h=4184/{width}*{height}+520[out0];'''
                    '''[out0]drawtext=bordercolor=black@0.2:fontsize=50:fontcolor=black:'''
                    '''fontfile="{font}":x=550:y=100:line_spacing=20:'''
-                   '''text='File\ Name\x09\x09\\\\:\ {file_name}\nFile\ Size'''
+                   '''text='File\ Name\x09\\\\:\ {file_name}\nFile\ Size'''
                    '''\x09\x09\\\\:\ {file_size}\nResolution\x09\\\\:\ '''
                    '''{resolution}\nCodec\x09\x09\x09\\\\:\ '''
                    '''Video\ {v_codec}\\\\\,\ Audio\ {a_codec}\n'''
@@ -289,7 +292,7 @@ class Thumb:
                    '''[input0]pad=x=0:y=0:w=in_w:h=4168/{width}*{height}+1000[out0];'''
                    '''[out0]drawtext=bordercolor=black@0.2:fontsize=50:fontcolor=0xD5246B:'''
                    '''fontfile="{font}":x=200:y=640:line_spacing=20:'''
-                   '''text='File\ Name\x09\x09\\\\:\ {file_name}\nFile\ '''
+                   '''text='File\ Name\x09\\\\:\ {file_name}\nFile\ '''
                    '''Size\x09\x09\\\\:\ {file_size}\n'''
                    '''Resolution\x09\\\\:\ {resolution}\n'''
                    '''Codec\x09\x09\x09\\\\:\ Video\ {v_codec}\\\\\,\ Audio\ {a_codec}\n'''
@@ -307,9 +310,9 @@ class Thumb:
 
         return PurePath(cmd_dict["output"])
 
-    def creat(self, horizontal=3, vertical=3) -> PurePath:
+    def create(self, horizontal=3, vertical=3) -> PurePath:
         num = horizontal * vertical
-        with tempfile.TemporaryDirectory()as td:
+        with tempfile.TemporaryDirectory() as td:
             thumb_list = self.thumbnails(num, td)
             pic_path = self.combine_thumbs(thumb_list, td)
-            return self.add_banner(pic_path, td)
+            return self.add_banner(pic_path)
