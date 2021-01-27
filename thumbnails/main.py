@@ -40,7 +40,7 @@ def main():
           keep=args.keep,
           font=args.file,
           banner=args.banner,
-          _debug=args.debug).creat()
+          _debug=args.debug).create()
     return
 
 
