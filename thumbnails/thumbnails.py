@@ -1,57 +1,171 @@
 # -*- coding:utf-8 -*-
 
 import os
-import subprocess
-import datetime
 import shlex
-import json
-import pkg_resources
+import datetime
+import subprocess
 import tempfile
 
+from typing import Tuple, Iterator
 from pathlib import Path
 from pathlib import PurePath
 
+import pkg_resources
+import ffmpeg
+
+from pymediainfo import MediaInfo
+
+# In fact, we just need ffmpeg module,
+# but this module provide some useful feature.
+
+
+class Video:
+    __slots__ = ['__video_path', '__media_info', '__general_info',
+                 '__video_info', '__audio_info']
+
+    def __init__(self, video_path: str):
+        """
+        The class of video to handle video info.
+        :param video_path: The path of the video you want to get its mediainfo.
+        """
+        self.__video_path = PurePath(video_path)
+        self.__media_info = (MediaInfo.parse(self.__video_path.as_posix())
+                             .to_data())
+        self.__general_info = self.__media_info['tracks'][0]
+        self.__video_info = self.__media_info['tracks'][1]
+        self.__audio_info = self.__media_info['tracks'][2]
+
+    @property
+    def video_path(self) -> PurePath:
+        """
+        This method return video path.
+        :return: video_path
+        """
+        return self.__video_path
+
+    @property
+    def duration(self) -> Tuple[float, str]:
+        """
+        This method return a tuple containing duration in millisecond and
+        duration readable (HH:MM:SS.SS).
+        example: (7193918, 01:59:53.919)
+        :return: (duration, other_duration[3])
+        """
+        return (float(self.__general_info['duration']),
+                self.__general_info['other_duration'][3])
+
+    @property
+    def size(self) -> Tuple[int, str]:
+        """
+        This method return a tuple containing file size in bytes and file size
+        readable.
+        example: (7119725816, '6.63 GiB')
+        :return: (file_size, other_file_size)
+        """
+        return (int(self.__general_info['file_size']),
+                self.__general_info['other_file_size'][0])
+
+    @property
+    def video_codec(self) -> Tuple[str, str]:
+        """
+        This method return a tuple containing video codecs and internet media
+        type.
+        example: ('AVC', 'H264')
+        :return: (video_codecs, internet_media_type[6:])
+        """
+        return (self.__general_info['codecs_video'],
+                self.__video_info['internet_media_type'][6:])
+
+    @property
+    def audio_codec(self) -> Tuple[str, str, str]:
+        """
+         This method return a tuple containing audio codecs, audio format and
+         audio muxing mode.
+         example: ('AAC LC', 'AAC', 'ADTS')
+        :return: (audio_codecs, audio_format, audio_muxing_mode)
+        """
+        return (self.__general_info['audio_codecs'],
+                self.__audio_info['format'],
+                self.__audio_info['muxing_mode'])
+
+    @property
+    def resolution(self) -> Tuple[dict, str, str]:
+        """
+        This method return a tuple containing video width and height, video
+        resolution and video display aspect ratio.
+        example: ({'width': 1920, 'height': 1080}, '1920x1080', '16:9')
+        :return: ({'width': width, 'height': height}, resolution, aspect_ratio)
+        """
+        width = self.__video_info['width']
+        height = self.__video_info['height']
+        return ({'width': width, 'height': height},
+                str(width) + 'x' + str(height),
+                self.__video_info['other_display_aspect_ratio'][0])
+
+    @property
+    def fps(self) -> str:
+        """
+        This method return a string containing video frame rate.
+        example: '25.000'
+        :return: frame_rate
+        """
+        return self.__video_info['frame_rate']
+
+    @property
+    def name(self) -> Tuple[str, str]:
+        """
+        This method return a tuple containing video path without extension and
+        video name with path.
+        example: ("c:/test", "test.mp4")
+        :return: (video_path_stem, video_name)
+        """
+        return self.__video_path.stem, self.__video_path.name
+
 
 class Thumb:
-    def __init__(self, video_path: str, banner: str, tp: str, keep: bool,
-                 font: str, _debug: bool):
+    def __init__(self, video_path: str, tp: str, keep: bool, font: str,
+                 banner: str, _debug: bool):
         """
+        The class to generate thumbnails.
         :param video_path: The path of video you want to generate thumbnails.
         :param banner: Set a banner for thumbnails.
         :param tp: The path to store thumbnails.
         :param keep: keep all temporary thumbnails.
         :param font: Set font to use in thumbnails.
-        :param _debug: FFmpeg report mode.
+        :param _debug: debug mode.
         """
-        self._video = video_path
-        self._length = self.length
-        self._size = self.size
+        self.__video: 'Video' = Video(video_path)
+        self.__stream: ffmpeg.Stream = ffmpeg.input(self.__video.video_path)
+        self.__duration: Tuple[float, str] = self.__video.duration
+        self.__size: Tuple[int, str] = self.__video.size
         # raw name
-        self._name = PurePath(video_path).stem
+        self.__name = self.__video.name[0]
         # name with ext
-        self._name_ext = PurePath(video_path).name
+        self.__name_ext = self.__video.name[1]
         # output path
-        self._tp = os.getcwd() if tp == "." else tp
-        self._remove_thumb = not keep
-        self._debug = "-report " if _debug else ""
+        self.__tp = os.getcwd() if tp == "." else tp
+        self.__remove_thumb = not keep
+        self.__debug = "-report " if _debug else ""
         if not font:
-            self._font = ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-                          if os.name == "posix"
-                          else "C:/Windows/Fonts/arial.ttf")
+            self.__font = PurePath(
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+                if os.name == "posix"
+                else "C:/Windows/Fonts/arial.ttf")
         else:
-            self._font = font
+            self.__font = PurePath(font)
 
-        self._banner = PurePath(banner).as_posix()
-        self._default_banner = (True if banner == "thumbnails/static/banner.png"
-                                else False)
+        self.__banner = PurePath(banner).as_posix()
+        self.__default_banner = (
+            True if banner == "thumbnails/static/banner.png"
+            else False)
 
         resource_package = __name__
         resource_path = '/'.join(
             ('static', 'banner.png'))  # Do not use os.path.join()
         banner_path = pkg_resources.resource_filename(resource_package,
                                                       resource_path)
-        if self._default_banner:
-            self._banner = PurePath(banner_path).as_posix()
+        if self.__default_banner:
+            self.__banner = PurePath(banner_path).as_posix()
 
     def wait(self, popen: subprocess.Popen):
         """
@@ -60,7 +174,7 @@ class Thumb:
         :return:
         """
         while True:
-            if self._debug:
+            if self.__debug:
                 try:
                     print(popen.communicate()[0].decode())
                 except ValueError:
@@ -70,14 +184,14 @@ class Thumb:
             if popen.poll() is not None:
                 break
 
-    def gen_path(self, td) -> str:
+    def __gen_directory(self, td) -> str:
         """
         Generate thumbnails folder if it doesn't exist.
         :return: path, filename -> thumbnails path, video fullname
         """
         # self.remove_thumb=False 时创建与视频同名的文件夹
-        if not self._remove_thumb:
-            thumb_path = PurePath(self._tp).as_posix() + "/" + self._name
+        if not self.__remove_thumb:
+            thumb_path = PurePath(self.__tp).as_posix() + "/" + self.__name
             try:
                 Path(thumb_path).mkdir(parents=True, exist_ok=True)
             except TypeError:
@@ -87,75 +201,48 @@ class Thumb:
             thumb_path = td
         return thumb_path
 
-    @property
-    def length(self) -> str:
-        """
-        Get the duration of self.video.
-        :return: duration of video in seconds.
-        """
-        cmd = ('ffprobe -i {} -show_entries '
-               'format=duration -v quiet -of csv="p=0"')
-        cmd = cmd.format(self._video)
-        result = subprocess.Popen(cmd,
-                                  shell=True,
-                                  stdout=subprocess.PIPE,
-                                  stderr=subprocess.STDOUT)
-
-        output, error = result.communicate()
-        output = output.splitlines()[0]
-        length = output.decode()
-        return length
-
-    @property
-    def size(self):
-        """
-        Get the size of file.
-        :return: size_m: file size in MiB, size_g: file size in GiB
-        """
-        size = os.path.getsize(self._video)
-        size = size / 1024
-        size_m = size / 1024  # MiB
-        size_g = size_m / 1024  # GiB
-        return size_m, size_g
-
-    def thumbnails(self, num: int, td: str) -> list:
+    def thumbnails(self, num: int, td: str) -> Iterator:
         """
         Generate thumbnails.
         :param num: The number of thumbnails you want to get.
         :param td: temporary directory.
         :return: Thumbnails' name list.
         """
-        thumb_path = self.gen_path(td)
+
+        def output_path(index):
+            return PurePath(thumb_path
+                            + "/"
+                            + self.__name
+                            + "_"
+                            + str(index)
+                            + '.png').as_posix()
+        thumb_path = self.__gen_directory(td)
 
         # 生成带时间戳的截图命令
-        length = int(float(self._length))
-        interval = length / (num + 1)
-        time_list = []
+        interval = int(self.__duration[0]/1000) / (num + 1)
 
         # 生成截图时间点
-        for i in range(num):
-            time_list.append(interval * (i + 1))
-        ffmpeg_sh = ('''ffmpeg -start_at_zero -copyts -ss {:s} -i {:s} '''
-                     '''-vf "drawtext=fontfile={}:fontsize=h/20:'''
-                     '''fontcolor=yellow:x=5:y=5:'''
-                     '''text='Time\\: %{{pts\\:hms}}'" -vframes 1 "{:s}.png"''')
+        time_list = enumerate([interval * (i + 1) for i in range(num)], start=1)
 
-        thumb_list = []
-        for time_point in time_list:
-            time = str(datetime.timedelta(seconds=time_point))
-            # 按现在时间生成截图名
-            time_now = str(datetime.datetime.now().strftime("%Y%m%d_%H%M%S.%f"))
+        thumb_list = [(ffmpeg.input(self.__video.video_path.as_posix(),
+                                    start_at_zero=None,
+                                    ss=datetime.timedelta(seconds=time_point),
+                                    copyts=None)
+                       .drawtext(text="Time: %{pts:hms}", x=5, y=5,
+                                 escape_text=False,
+                                 fontsize="h/20",
+                                 fontcolor="yellow",
+                                 fontfile=self.__font.as_posix())
+                       .output(output_path(index), vframes=1, loglevel=48)
+                       .overwrite_output()
+                       .run_async(quiet=True),
+                       output_path(index))
+                      for index, time_point in time_list]
 
-            output_name = thumb_path + "/" + self._name + "_" + time_now
-            cmd = ffmpeg_sh.format(time, self._video, self._font, output_name)
-            p = subprocess.Popen(cmd,
-                                 shell=True,
-                                 stdout=subprocess.PIPE,
-                                 stderr=subprocess.STDOUT)
-            thumb_list.append(output_name + ".png")
-            self.wait(p)
+        # for pipe in thumb_list:
+        #     self.wait(pipe[0])
 
-        return thumb_list
+        return map(lambda x: x[1], thumb_list)
 
     def combine_thumbs(self, thumb_list, td, horizontal=3, vertical=3):
         """
@@ -166,7 +253,7 @@ class Thumb:
         :param vertical:
         :return:
         """
-        path = self.gen_path(td)
+        path = self.__gen_directory(td)
 
         # 创建一个list,用于储存截图名字，避免生成命令过长
         thumbs_name = []
@@ -211,67 +298,38 @@ class Thumb:
         cmd = 'ffmpeg -y -i '
         cmd += ' -i '.join(row_thumb)
         cmd += ' -filter_complex "vstack=inputs={:s}" {:s}.png'
-        cmd = cmd.format(str(horizontal), self._name)
+        cmd = cmd.format(str(horizontal), self.__name)
         pipe = subprocess.Popen(cmd,
                                 shell=True,
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT,
                                 cwd=path)
         self.wait(pipe)
-        pic_path = PurePath(path + '/{:s}.png'.format(self._name))
+        pic_path = PurePath(path + '/{:s}.png'.format(self.__name))
         return pic_path
 
     def add_banner(self, pic_path: PurePath) -> PurePath:
-        ffprobe_cmd = ('ffprobe '
-                       '-i {video} '
-                       '-v quiet '
-                       '-print_format json '
-                       '-show_format '
-                       '-show_streams '
-                       '-hide_banner')
-        ffprobe_cmd = ffprobe_cmd.format(video=self._video)
-
-        mediainfo = subprocess.Popen(ffprobe_cmd,
-                                     shell=True,
-                                     stdout=subprocess.PIPE,
-                                     stderr=subprocess.STDOUT,
-                                     )
-        output, error = mediainfo.communicate()
-        output = json.loads(output.decode())
-
-        v_codec = output["streams"][0]["codec_name"].upper()
-        a_codec = output["streams"][1]["codec_name"].upper()
-        # duration = output["format"]["duration"]
-        # file_size = output["format"]["size"]
-        resolution = str(output["streams"][0]["width"])
-        resolution += " x " + str(output["streams"][0]["height"])
-        duration = str(datetime.timedelta(seconds=int(float(self._length))))
-        # 判断视频体积以决定输出单位
-        file_size = str(round(self._size[0], 2)) + " MiB"
-        file_size = (file_size
-                     if self._size[0] < 1024.0
-                     else str(round(self._size[1], 2)) + " GiB")
-        if not self._remove_thumb:
-            output_path = PurePath(self._tp).as_posix() + "/" + self._name
+        if not self.__remove_thumb:
+            output_path = PurePath(self.__tp).as_posix() + "/" + self.__name
         else:
-            output_path = PurePath(self._tp).as_posix()
+            output_path = PurePath(self.__tp).as_posix()
 
         cmd_dict = {
             "input": pic_path.as_posix(),
-            "file_name": self._name_ext,
-            "file_size": file_size,
-            "resolution": resolution,
-            "height": str(output["streams"][0]["height"]),
-            "width": str(output["streams"][0]["width"]),
-            "v_codec": v_codec,
-            "a_codec": a_codec,
-            "duration": duration.replace(":", "\\\\:"),
-            "output": output_path + "/" + self._name + "_full.png",
-            "debug": self._debug,
-            "font": self._font,
-            "banner": self._banner
+            "file_name": self.__name_ext,
+            "file_size": self.__size[1],
+            "width": self.__video.resolution[0]['width'],
+            "height": self.__video.resolution[0]['height'],
+            "resolution": self.__video.resolution[1],
+            "v_codec": self.__video.video_codec[1],
+            "a_codec": self.__video.audio_codec[1],
+            "duration": self.__duration[1].replace(":", "\\\\:"),
+            "output": output_path + "/" + self.__name + "_full.png",
+            "debug": self.__debug,
+            "font": self.__font,
+            "banner": self.__banner
         }
-        if not self._default_banner:
+        if not self.__default_banner:
             cmd = ('''ffmpeg {debug}-i {banner} -i {input} '''
                    '''-filter_complex "[1:v][0:v]scale2ref=w=iw:h=iw/mdar[input1][input0];'''
                    '''[input0]pad=x=0:y=0:w=in_w:h=4184/{width}*{height}+520[out0];'''
